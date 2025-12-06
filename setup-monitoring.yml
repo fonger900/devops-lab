@@ -1,0 +1,70 @@
+---
+- name: Deploy Node Exporter (Agents)
+  hosts: all
+  become: yes
+  tasks:
+    - name: Start Node Exporter
+      community.docker.docker_container:
+        name: node-exporter
+        image: prom/node-exporter:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "9100:9100"
+        # Mount thư mục hệ thống để đọc thông tin chính xác
+        volumes:
+          - /proc:/host/proc:ro
+          - /sys:/host/sys:ro
+          - /:/rootfs:ro
+        command: 
+          - '--path.procfs=/host/proc' 
+          - '--path.sysfs=/host/sys'
+          - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($|/)'
+
+- name: Deploy Prometheus & Grafana (Central Server)
+  hosts: load_balancer # Chỉ chạy trên máy LB
+  become: yes
+  tasks:
+    # --- PROMETHEUS SETUP ---
+    - name: Create Prometheus Config Directory
+      file:
+        path: /etc/prometheus
+        state: directory
+        mode: '0755'
+
+    - name: Generate Prometheus Config from Template
+      template:
+        src: prometheus.yml.j2
+        dest: /etc/prometheus/prometheus.yml
+      notify: Restart Prometheus
+
+    - name: Start Prometheus Container
+      community.docker.docker_container:
+        name: prometheus
+        image: prom/prometheus:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "9090:9090"
+        volumes:
+          - /etc/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+          - prometheus_data:/prometheus # Persistent Volume để không mất dữ liệu
+
+    # --- GRAFANA SETUP ---
+    - name: Start Grafana Container
+      community.docker.docker_container:
+        name: grafana
+        image: grafana/grafana:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "3000:3000"
+        volumes:
+          - grafana_data:/var/lib/grafana # Persistent Volume
+
+  handlers:
+    - name: Restart Prometheus
+      community.docker.docker_container:
+        name: prometheus
+        state: started
+        restart: yes
