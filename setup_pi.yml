@@ -1,0 +1,35 @@
+---
+- name: Cấu hình cơ bản cho Raspberry Pi Homelab
+  hosts: homelab_pi
+  become: yes  # Tự động dùng sudo (quan trọng)
+
+  tasks:
+    - name: Cập nhật danh sách apt (apt update)
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600 # Nếu mới update trong 1h thì không cần update lại
+
+    - name: Cài đặt công cụ giám sát btop
+      apt:
+        name: btop
+        state: present
+
+    - name: Cài đặt vim và git (tiện thể cài luôn)
+      apt:
+        name:
+          - vim
+          - git
+        state: present
+
+    - name: Thêm lệnh tắt 'pihealth' vào .bashrc
+      blockinfile:
+        path: /home/{{ ansible_user }}/.bashrc
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - PIHEALTH"
+        block: |
+          alias pihealth='echo "---------------------------------"; \
+          echo "🔥 CPU Temp: $(vcgencmd measure_temp)"; \
+          echo "⚡ Voltage/Throttled: $(vcgencmd get_throttled)"; \
+          echo "   (0x0=Perfect, 0x50000=Undervoltage occurred)"; \
+          echo "🚀 Clock Speed: $(vcgencmd measure_clock arm)"; \
+          echo "💾 Memory Split: $(vcgencmd get_mem arm) / $(vcgencmd get_mem gpu)"; \
+          echo "---------------------------------";'

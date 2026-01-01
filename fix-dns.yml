@@ -1,0 +1,26 @@
+---
+- name: Fix DNS Issues on Rocky Linux
+  hosts: all
+  become: yes
+  tasks:
+    - name: Configure DNS to 8.8.8.8 (Rocky Linux)
+      shell: |
+        # 1. Tìm tên kết nối mạng đang active (thường là eth0 hoặc ens160)
+        CONN_NAME=$(nmcli -t -f NAME,DEVICE connection show --active | head -n 1 | cut -d: -f1)
+        
+        # 2. Set DNS thành Google và Cloudflare
+        nmcli con mod "$CONN_NAME" ipv4.dns "8.8.8.8 1.1.1.1"
+        nmcli con mod "$CONN_NAME" ipv4.ignore-auto-dns yes
+        
+        # 3. Khởi động lại kết nối để áp dụng
+        nmcli con down "$CONN_NAME" && nmcli con up "$CONN_NAME"
+      when: ansible_facts['os_family'] == "RedHat"
+      ignore_errors: yes
+
+    # Phương án dự phòng: Ghi thẳng vào /etc/resolv.conf (Cho cả Ubuntu và Rocky)
+    - name: Force Update /etc/resolv.conf (Backup Plan)
+      copy:
+        dest: /etc/resolv.conf
+        content: |
+          nameserver 8.8.8.8
+          nameserver 1.1.1.1
