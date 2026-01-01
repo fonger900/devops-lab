@@ -14,6 +14,13 @@ Vagrant.configure("2") do |config|
     lb.vm.hostname = "lb"
     lb.vm.network "private_network", ip: "192.168.56.10"
     
+    # Map cổng 80 (Web) máy ảo -> 8080 máy thật
+    lb.vm.network "forwarded_port", guest: 80, host: 8888
+    # Map cổng 3000 (Grafana) máy ảo -> 3000 máy thật
+    lb.vm.network "forwarded_port", guest: 3000, host: 3000
+    # Map cổng 9090 (Prometheus) máy ảo -> 9090 máy thật
+    lb.vm.network "forwarded_port", guest: 9090, host: 9090 
+
     lb.vm.provider "vmware_desktop" do |v|
       v.memory = 1024
       v.cpus = 1
@@ -42,5 +49,22 @@ Vagrant.configure("2") do |config|
       v.memory = 1024
       v.cpus = 1
     end
+  end
+
+  # --- Node 4: Database Server (FreeBSD) ---
+  config.vm.define "bsd1" do |bsd|
+    bsd.vm.box = "generic/freebsd14"
+    bsd.vm.hostname = "bsd1"
+    
+    bsd.vm.network "private_network", ip: "192.168.56.15"
+
+    bsd.vm.provider "vmware_desktop" do |v|
+      v.memory = 1024 # FreeBSD chạy rất nhẹ, 1GB là dư
+      v.cpus = 1
+      v.gui = false
+    end
+    
+    # FreeBSD dùng Shell khác (tcsh), cần config này để Vagrant không bị lỗi khi mount folder
+    bsd.vm.synced_folder ".", "/vagrant", disabled: true 
   end
 end
