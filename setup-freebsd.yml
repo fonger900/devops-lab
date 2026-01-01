@@ -1,0 +1,59 @@
+---
+# --- PLAY 1: MỒI LỬA (BOOTSTRAP) ---
+# Play này chạy KHÔNG CẦN Python để cài Python
+- name: Bootstrap Python on FreeBSD
+  hosts: db_servers
+  gather_facts: no  # QUAN TRỌNG: Tắt thu thập thông tin để không bị lỗi ngay từ đầu
+  become: yes
+  tasks:
+    - name: Install Python 3 using Raw SSH
+      raw: pkg install -y python3
+      # Module 'raw' chạy lệnh shell trực tiếp qua SSH mà không cần Python
+      # Lệnh này sẽ cài Python vào /usr/local/bin/python3
+
+# --- PLAY 2: CẤU HÌNH CHÍNH THỨC ---
+# Play này chạy bình thường sau khi đã có Python
+- name: Setup FreeBSD Database Server
+  hosts: db_servers
+  become: yes
+  tasks: 
+    # Bây giờ Ansible đã có thể dùng module Python bình thường
+    - name: Install Basic Packages
+      community.general.pkgng:
+        name:
+          - bash
+          - curl
+          - vim
+          - htop
+          - git
+          - neofetch
+        state: present
+
+    - name: Change Default Shell to Bash
+      user:
+        name: vagrant
+        shell: /usr/local/bin/bash
+
+    - name: Enable ZFS Services
+      service:
+        name: zfs
+        state: started
+        enabled: yes
+
+- name: Test FreeBSD Database Server
+  hosts: db_servers
+  # become: yes
+  tasks: 
+    - name: Create a Welcome File
+      copy:
+        dest: "{{ ansible_facts['env']['HOME'] }}/welcome.txt"
+         # 2. Quan trọng: Gán lại chủ sở hữu
+        # owner: vagrant
+        # group: vagrant
+        # mode: '0644'
+        content: |
+          Welcome to FreeBSD 14!
+          Python is installed via Ansible Raw module.
+          ZFS is ready.
+          Path check: {{ ansible_facts['env']['HOME'] }}
+          
